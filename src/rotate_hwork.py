@@ -83,9 +83,9 @@ def rotate_hwork(hwork_id: int,
     return None 
 
 if __name__ == "__main__":
-
-    conn = get_connection()
-    rotate_hwork(
-        4, 
-        conn
-    )
+    for i in range(1, 6, 1):
+        conn = get_connection()
+        rotate_hwork(
+            i, 
+            conn
+        )
