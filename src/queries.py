@@ -43,3 +43,22 @@ def query_assignment(connection: PGConnection,
     h_id, r_id, turn = hwork_df.iloc[0]
 
     return h_id, r_id, turn
+
+def generic_query(query: str, connection: PGConnection):
+    """
+    Devuelve la tabla producto de una consulta genérica
+
+    Parameters
+    ----------
+    connection : PGConnection
+        Conexión abierta a la base de datos.
+    query : str
+        Consulta en cuestión
+
+    Returns
+    -------
+    `` pd.DataFrame `` 
+        Contenido de la consulta en cuestión
+    """
+
+    return pd.read_sql(sql = query, con = connection)
