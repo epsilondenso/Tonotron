@@ -1,5 +1,6 @@
 import pandas as pd
 import datetime
+from psycopg2.extensions import connection as PGConnection
 
 from src.connect_db import get_connection
 from src.queries import query_assignment
@@ -8,7 +9,24 @@ from src.utils import next_sunday
 
 
 def rotate_hwork(hwork_id: int, 
-                 connection ):
+                 connection: PGConnection ) -> None:
+    """
+    Rota una tarea doméstica al roomie del siguiente turno.
+
+    Avanza el turno (cíclico de 1 a 6), actualiza ``roomie_id``,
+    ``assigned_at`` y ``due_date`` en ``assignments`` y hace commit.
+
+    Parameters
+    ----------
+    hwork_id : int
+        ID de la tarea doméstica a rotar.
+    connection : PGConnection
+        Conexión abierta a la base de datos.
+
+    Returns
+    -------
+    None
+    """
 
     h_id, r_id, turn = query_assignment(
         connection, 
@@ -64,11 +82,10 @@ def rotate_hwork(hwork_id: int,
 
     return None 
 
-conn = get_connection()
+if __name__ == "__main__":
 
-rotate_hwork(
-    4, 
-    conn
-)
-
-# conn.close()
+    conn = get_connection()
+    rotate_hwork(
+        4, 
+        conn
+    )
