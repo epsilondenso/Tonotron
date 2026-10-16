@@ -1,4 +1,8 @@
+import os
+
+from dotenv import load_dotenv
 import pandas as pd
+
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -12,9 +16,9 @@ from src.queries import get_housework_id
 from queries.queries import hwork_name_query
 
 # Sustituye estos valores por tus datos reales.
-BOT_TOKEN = "8750452341:AAECLsAPQYb56XXi9oAOje9-Cm3-kZgZEVA"
-AUTHORIZED_USERS = {5993413477}  # IDs de Telegram autorizados
-
+load_dotenv()
+BOT_TOKEN = os.getenv("PRUEBAS_TOKEN")
+AUTHORIZED_USERS = {5993413477, 5848779012}  # IDs de Telegram autorizados
 
 async def terminada(
     update: Update,
