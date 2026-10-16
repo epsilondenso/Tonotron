@@ -1,5 +1,7 @@
 import pandas as pd
 from psycopg2.extensions import connection as PGConnection
+from src.utils import normalize_name
+from queries.queries import hwork_name_query
 
 def query_assignment(connection: PGConnection, 
                      hwork_id:int) -> tuple[int, int, int]:
@@ -44,21 +46,23 @@ def query_assignment(connection: PGConnection,
 
     return h_id, r_id, turn
 
-def generic_query(query: str, connection: PGConnection):
-    """
-    Devuelve la tabla producto de una consulta genérica
 
-    Parameters
-    ----------
-    connection : PGConnection
-        Conexión abierta a la base de datos.
-    query : str
-        Consulta en cuestión
+def get_housework_id(name, connection: PGConnection):
+    
+    normalized_name = normalize_name(name)
 
-    Returns
-    -------
-    `` pd.DataFrame `` 
-        Contenido de la consulta en cuestión
-    """
+    #try:
+    with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT housework_id, housework_name
+                FROM housework
+            """)
 
-    return pd.read_sql(sql = query, con = connection)
+            for housework_id, housework_name in cursor.fetchall():
+                if normalize_name(housework_name) == normalized_name:
+                    return housework_id
+
+    return None
+
+    #finally:
+    #    connection.close()

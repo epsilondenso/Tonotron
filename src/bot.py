@@ -1,3 +1,4 @@
+import pandas as pd
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -7,6 +8,8 @@ from telegram.ext import (
 
 from src.connect_db import get_connection
 from src.rotate_hwork import rotate_hwork
+from src.queries import get_housework_id
+from queries.queries import hwork_name_query
 
 # Sustituye estos valores por tus datos reales.
 BOT_TOKEN = "8750452341:AAECLsAPQYb56XXi9oAOje9-Cm3-kZgZEVA"
@@ -23,31 +26,40 @@ async def terminada(
         await update.message.reply_text("No tienes autorización.")
         return
 
-    if len(context.args) != 1 or not context.args[0].isdigit():
+    if not context.args:
         await update.message.reply_text(
-            "Uso: /terminada ID\nEjemplo: /terminada 3"
+            "Uso: /terminada nombre de la tarea\n"
+            "Ejemplo: /terminada limpiar cocina"
         )
         return
 
-    hwork_id = int(context.args[0])
-
-    if hwork_id not in range(1, 6):
-        await update.message.reply_text("ID de tarea inválido.")
-        return
-
+    task_name = " ".join(context.args)
     connection = get_connection()
 
     try:
+        hwork_id = get_housework_id(task_name, connection)
+        if hwork_id is None:
+            await update.message.reply_text(
+                f"No se encontró la tarea '{task_name}'."
+            )
+            return
+        true_name = pd.read_sql(hwork_name_query, connection, params = (hwork_id,)).iloc[0,0]
+
+
+
         rotate_hwork(hwork_id, connection)
+
         await update.message.reply_text(
-            f"¡Tarea {hwork_id} rotada correctamente!"
+            f"¡Tarea '{true_name}' rotada correctamente!"
         )
+
     except Exception:
         connection.rollback()
         await update.message.reply_text(
             "No se pudo actualizar la tarea."
         )
         raise
+
     finally:
         connection.close()
 

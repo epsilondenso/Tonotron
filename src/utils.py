@@ -1,3 +1,4 @@
+import unicodedata
 from datetime import datetime, timedelta
 
 
@@ -19,3 +20,13 @@ def next_sunday() -> datetime:
         days_until_sunday += 7
 
     return today + timedelta(days=days_until_sunday)
+
+
+def normalize_name(name):
+    name = name.strip().lower()
+    name = unicodedata.normalize("NFD", name)
+    name = "".join(
+        char for char in name
+        if unicodedata.category(char) != "Mn"
+    )
+    return " ".join(name.split())
