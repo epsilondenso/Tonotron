@@ -1,13 +1,17 @@
+import os
+
+from dotenv import load_dotenv
 import psycopg2
 from psycopg2.extensions import connection as PGConnection
-import streamlit as st
+
+load_dotenv()
 
 def get_connection(
-    host: str = "localhost",
-    port: int = 5432,
-    dbname: str = "tonotron",
-    user: str = "postgres",
-    password: str = "aVs#1105"
+    host: str | None = None,
+    port: int | None = None,
+    dbname: str | None = None,
+    user: str | None = None,
+    password: str | None = None
 ) -> PGConnection:
     """
     Abre una conexión a la base de datos PostgreSQL.
@@ -15,15 +19,15 @@ def get_connection(
     Parameters
     ----------
     host : str, optional
-        Host del servidor.
+        Host del servidor. Por defecto ``DB_HOST`` o ``"localhost"``.
     port : int, optional
-        Puerto del servidor.
+        Puerto del servidor. Por defecto ``DB_PORT`` o ``5432``.
     dbname : str, optional
-        Nombre de la base de datos.
+        Nombre de la base de datos. Por defecto ``DB_NAME`` o ``"tonotron"``.
     user : str, optional
-        Usuario de la base de datos.
+        Usuario de la base de datos. Por defecto ``DB_USER`` o ``"postgres"``.
     password : str, optional
-        Contraseña del usuario.
+        Contraseña del usuario. Por defecto ``DB_PASSWORD``.
 
     Returns
     -------
@@ -32,10 +36,10 @@ def get_connection(
     """
 
     return psycopg2.connect(
-        host=host,
-        port=port,
-        dbname=dbname,
-        user=user,
-        password=password
+        host=host or os.getenv("DB_HOST", "localhost"),
+        port=port or int(os.getenv("DB_PORT", "5432")),
+        dbname=dbname or os.getenv("DB_NAME", "tonotron"),
+        user=user or os.getenv("DB_USER", "postgres"),
+        password=password or os.getenv("DB_PASSWORD")
     )
 

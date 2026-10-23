@@ -1,7 +1,7 @@
 import pandas as pd
 from psycopg2.extensions import connection as PGConnection
 from src.utils import normalize_name
-from queries.queries import hwork_name_query
+from src.sql import hwork_name_query
 
 def query_assignment(connection: PGConnection, 
                      hwork_id:int) -> tuple[int, int, int]:

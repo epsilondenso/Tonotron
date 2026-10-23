@@ -1,3 +1,4 @@
-tonotron.sql
+db/init/
 .env
 !.env.example
+__pycache__/

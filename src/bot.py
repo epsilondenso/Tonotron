@@ -13,22 +13,21 @@ from telegram.ext import (
 from src.connect_db import get_connection
 from src.rotate_hwork import rotate_hwork
 from src.queries import get_housework_id
-from queries.queries import hwork_name_query
+from src.sql import hwork_name_query, roomie_telegram_id_from_hwork
 
 # Sustituye estos valores por tus datos reales.
 load_dotenv()
 BOT_TOKEN = os.getenv("PRUEBAS_TOKEN")
-AUTHORIZED_USERS = {5993413477, 5848779012}  # IDs de Telegram autorizados
+ADMIN_USERS = {5848779012, 5993413477}  # IDs de Telegram admin: ANTONIO Y DENSEL
 
 async def terminada(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     user_id = update.effective_user.id
+    
 
-    if user_id not in AUTHORIZED_USERS:
-        await update.message.reply_text("No tienes autorización.")
-        return
+
 
     if not context.args:
         await update.message.reply_text(
@@ -49,9 +48,14 @@ async def terminada(
             return
         true_name = pd.read_sql(hwork_name_query, connection, params = (hwork_id,)).iloc[0,0]
 
+        tid_fom_hwork = pd.read_sql(roomie_telegram_id_from_hwork, connection, params=(hwork_id,)).iloc[0,0]
 
+        if user_id not in ADMIN_USERS | {int(tid_fom_hwork)}:
+            await update.message.reply_text("No tienes autorización para rotar esta tarea.\nNo eres admin o no la tienes asignada")
+            return
 
         rotate_hwork(hwork_id, connection)
+        next_roomie = pd.read_sql(roomie_telegram_id_from_hwork, connection, params=(hwork_id,)).iloc[0,0]
 
         await update.message.reply_text(
             f"¡Tarea '{true_name}' rotada correctamente!"
