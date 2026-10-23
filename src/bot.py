@@ -1,3 +1,4 @@
+import html
 import os
 
 from dotenv import load_dotenv
@@ -13,7 +14,11 @@ from telegram.ext import (
 from src.connect_db import get_connection
 from src.rotate_hwork import rotate_hwork
 from src.queries import get_housework_id
-from src.sql import hwork_name_query, roomie_telegram_id_from_hwork
+from src.sql import (
+    hwork_name_query,
+    next_roomie_from_hwork,
+    roomie_telegram_id_from_hwork,
+)
 
 # Sustituye estos valores por tus datos reales.
 load_dotenv()
@@ -55,10 +60,15 @@ async def terminada(
             return
 
         rotate_hwork(hwork_id, connection)
-        next_roomie = pd.read_sql(roomie_telegram_id_from_hwork, connection, params=(hwork_id,)).iloc[0,0]
+        next_name, next_tid = pd.read_sql(
+            next_roomie_from_hwork, connection, params=(hwork_id,)
+        ).iloc[0]
+        mention = f'<a href="tg://user?id={int(next_tid)}">{html.escape(next_name)}</a>'
 
         await update.message.reply_text(
-            f"¡Tarea '{true_name}' rotada correctamente!"
+            f"¡Tarea '{html.escape(true_name)}' rotada correctamente!\n"
+            f"Ahora le toca a {mention}.",
+            parse_mode="HTML",
         )
 
     except Exception:
