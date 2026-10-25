@@ -1,3 +1,23 @@
+roomie_id_from_tid =    """
+                        SELECT
+                            roomie_id
+                        FROM
+                            roomies
+                        WHERE
+                            telegram_id = %s
+                        ;
+
+                        """
+roomie_name_from_rid = """
+                        SELECT
+                            roomie_name
+                        FROM
+                            roomies
+                        WHERE
+                            roomie_id = %s
+                        ;
+                        """
+
 hwork_name_query = """ 
                     SELECT 
                         housework_name 
@@ -5,6 +25,7 @@ hwork_name_query = """
                         housework 
                     WHERE
                         housework_id = %s
+                    ;
                     """
 roomie_telegram_id_from_hwork =   """
                             SELECT 
@@ -29,4 +50,20 @@ next_roomie_from_hwork = """
                             USING(roomie_id)
                             WHERE
                                 housework_id = %s;
+                            """
+assigned_hwork_from_rid =   """
+                            SELECT  
+                            	housework_name AS tarea, 
+                            	due_date AS fecha_limite,
+                            	assigned_at AS fecha_asignación
+                            FROM
+                            	assignments
+                            INNER JOIN
+                            	housework
+                            USING
+                            	(housework_id)
+
+                            WHERE 
+                            	roomie_id = %s
+                            ;
                             """

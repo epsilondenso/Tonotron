@@ -14,6 +14,9 @@ from src.sql import (
     hwork_name_query,
     next_roomie_from_hwork,
     roomie_telegram_id_from_hwork,
+    assigned_hwork_from_rid,
+    roomie_id_from_tid,
+    roomie_name_from_rid
 )
 
 load_dotenv()
@@ -69,6 +72,45 @@ async def terminada(
         connection.rollback()
         await update.message.reply_text(
             "No se pudo actualizar la tarea."
+        )
+        raise
+
+    finally:
+        connection.close()
+
+################
+## MIS TAREAS ##
+################
+
+async def mis_tareas(
+    context: ContextTypes.DEFAULT_TYPE,
+    update: Update,
+) -> None:
+    user_id = update.effective_user.id
+    connection = get_connection()
+    roomie_id = pd.read_sql(roomie_id_from_tid, connection, params = (user_id,)).iloc[0,0]
+    roomie_name = pd.read_sql(roomie_name_from_rid, connection, params = (roomie_id,)).iloc[0,0]
+    try:
+        tareas = pd.read_sql(assigned_hwork_from_rid, connection, params = (int(roomie_id),))
+        if tareas is None:
+            await update.message.reply_text(
+                f"Hola, {roomie_name}. Por ahora no tienes tareas asignadas, pero cuídate la espalda."
+            )
+            return
+        else:
+            tareas = tareas.to_string(index=False)
+
+            mensaje = ("<b>Tieneas asignadas las siguientes tareas:</b>\n"
+                       f"<pre>{html.escape(tareas)}</pre>")
+            
+            await update.message.reply_text(mensaje,
+                                            parse_mode = "HTML")
+
+
+    except Exception:
+        connection.rollback()
+        await update.message.reply_text(
+            "Toñotrón no pudo consultar tus tareas asignadas."
         )
         raise
 
