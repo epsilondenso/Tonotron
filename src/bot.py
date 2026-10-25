@@ -7,7 +7,7 @@ from telegram.ext import (
     CommandHandler
     )
 
-from src.handlers.terminada import terminada
+from src.handlers import terminada
 
 load_dotenv()
 BOT_TOKEN = os.getenv("PRUEBAS_TOKEN")
