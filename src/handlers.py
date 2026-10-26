@@ -16,11 +16,12 @@ from src.sql import (
     roomie_telegram_id_from_hwork,
     assigned_hwork_from_rid,
     roomie_id_from_tid,
-    roomie_name_from_rid
+    roomie_name_from_rid,
+    weekly_rol
 )
 
 load_dotenv()
-ADMIN_USERS = {os.getenv("ADMIN_USER_1"), os.getenv("ADMIN_USER_2")}
+ADMIN_USERS = {int(os.getenv("ADMIN_USER_1")), int(os.getenv("ADMIN_USER_2"))}
 
 async def terminada(
     update: Update,
@@ -52,7 +53,7 @@ async def terminada(
 
         tid_fom_hwork = pd.read_sql(roomie_telegram_id_from_hwork, connection, params=(hwork_id,)).iloc[0,0]
 
-        if user_id not in ADMIN_USERS | {int(tid_fom_hwork)}:
+        if int(user_id) not in ADMIN_USERS | {int(tid_fom_hwork)}:
             await update.message.reply_text("No tienes autorización para rotar esta tarea.\nNo eres admin o no la tienes asignada")
             return
 
@@ -84,7 +85,7 @@ async def terminada(
 
 async def mis_tareas(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
+    context: ContextTypes.DEFAULT_TYPE
 ) -> None:
 
     try:
@@ -128,7 +129,60 @@ async def mis_tareas(
     except Exception:
         connection.rollback()
         await update.message.reply_text(
-            "Toñotrón no pudo consultar tus tareas asignadas."
+            "Toñotrón no pudo consultar tus tareas asignadas. "
+        )
+        raise
+
+    finally:
+        connection.close()
+
+#################
+## ROL SEMANAL ##
+#################
+
+async def rol_semanal(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+) -> None:
+
+    try:
+        user_id = update.effective_user.id
+        connection = get_connection()
+        roomie_id = pd.read_sql(roomie_id_from_tid, connection, params = (int(user_id),)).iloc[0,0]
+        roomie_name = pd.read_sql(roomie_name_from_rid, connection, params = (int(roomie_id),)).iloc[0,0]
+        rol_sem = pd.read_sql(weekly_rol, connection)
+        if rol_sem.empty:
+            await update.message.reply_text(
+                f"Hola, {roomie_name}. La asignación semanal está vacía, debe haber algún error."
+            )
+            return
+        else:
+            rol_sem["fecha_limite"] = pd.to_datetime(
+                rol_sem["fecha_limite"]
+            ).dt.strftime("%d/%m/%Y")
+
+            bloques = []
+            
+            for _, rol in rol_sem.iterrows():
+                bloques.append(
+                    f"<b>{html.escape(str(rol['tarea']))}</b>\n"
+                    f"👤 Le toca a: {rol['le_toca_a']}\n"
+                    f"📅 Fecha límite: {rol['fecha_limite']}"
+                )
+            
+            mensaje = (
+                "<b>Esta es el rol actual:</b>\n\n"
+                + "\n\n".join(bloques)
+            )
+            
+            await update.message.reply_text(mensaje,
+                                            parse_mode = "HTML")
+
+
+    except Exception:
+        connection.rollback()
+        await update.message.reply_text(
+            "Toñotrón no pudo consultar el rol. "
         )
         raise
 

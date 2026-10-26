@@ -7,7 +7,7 @@ from telegram.ext import (
     CommandHandler
     )
 
-from src.handlers import terminada, mis_tareas
+from src.handlers import terminada, mis_tareas, rol_semanal
 
 load_dotenv()
 BOT_TOKEN = os.getenv("PRUEBAS_TOKEN")
@@ -16,6 +16,7 @@ def main() -> None:
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("terminada", terminada))
     app.add_handler(CommandHandler("mis_tareas",  mis_tareas))
+    app.add_handler(CommandHandler("rol_semanal",  rol_semanal))
     app.run_polling()
 
 
