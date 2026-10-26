@@ -83,25 +83,43 @@ async def terminada(
 ################
 
 async def mis_tareas(
-    context: ContextTypes.DEFAULT_TYPE,
     update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
 ) -> None:
-    user_id = update.effective_user.id
-    connection = get_connection()
-    roomie_id = pd.read_sql(roomie_id_from_tid, connection, params = (user_id,)).iloc[0,0]
-    roomie_name = pd.read_sql(roomie_name_from_rid, connection, params = (roomie_id,)).iloc[0,0]
+
     try:
+        user_id = update.effective_user.id
+        connection = get_connection()
+        roomie_id = pd.read_sql(roomie_id_from_tid, connection, params = (int(user_id),)).iloc[0,0]
+        roomie_name = pd.read_sql(roomie_name_from_rid, connection, params = (int(roomie_id),)).iloc[0,0]
         tareas = pd.read_sql(assigned_hwork_from_rid, connection, params = (int(roomie_id),))
-        if tareas is None:
+        if tareas.empty:
             await update.message.reply_text(
                 f"Hola, {roomie_name}. Por ahora no tienes tareas asignadas, pero cuídate la espalda."
             )
             return
         else:
-            tareas = tareas.to_string(index=False)
-
-            mensaje = ("<b>Tieneas asignadas las siguientes tareas:</b>\n"
-                       f"<pre>{html.escape(tareas)}</pre>")
+            tareas["fecha_limite"] = pd.to_datetime(
+                tareas["fecha_limite"]
+            ).dt.strftime("%d/%m/%Y")
+            
+            tareas["fecha_asignación"] = pd.to_datetime(
+                tareas["fecha_asignación"]
+            ).dt.strftime("%d/%m/%Y")
+            
+            bloques = []
+            
+            for _, tarea in tareas.iterrows():
+                bloques.append(
+                    f"<b>{html.escape(str(tarea['tarea']))}</b>\n"
+                    f"📅 Fecha límite: {tarea['fecha_limite']}\n"
+                    f"🕒 Asignada: {tarea['fecha_asignación']}"
+                )
+            
+            mensaje = (
+                "<b>Tienes asignadas las siguientes tareas:</b>\n\n"
+                + "\n\n".join(bloques)
+            )
             
             await update.message.reply_text(mensaje,
                                             parse_mode = "HTML")
