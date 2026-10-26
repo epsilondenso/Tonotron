@@ -85,3 +85,23 @@ weekly_rol =    """
                     (roomie_id)
                 ;
                 """
+responsible_from_hwork =    """
+                            SELECT
+                                housework_name AS tarea,
+                                roomie_name AS le_toca_a,
+                                telegram_id,
+                                due_date AS fecha_limite
+                            FROM
+                                assignments
+                            INNER JOIN
+                                housework
+                            USING
+                                (housework_id)
+                            INNER JOIN
+                                roomies
+                            USING
+                                (roomie_id)
+                            WHERE
+                                housework_id = %s
+                            ;
+                            """

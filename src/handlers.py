@@ -171,18 +171,17 @@ async def rol_semanal(
                 )
             
             mensaje = (
-                "<b>Esta es el rol actual:</b>\n\n"
+                "<b>Este es el rol actual:</b>\n\n"
                 + "\n\n".join(bloques)
             )
             
             await update.message.reply_text(mensaje,
                                             parse_mode = "HTML")
 
-
     except Exception:
         connection.rollback()
         await update.message.reply_text(
-            "Toñotrón no pudo consultar el rol. "
+            "Toñotrón no pudo consultar el rol."
         )
         raise
 
