@@ -135,3 +135,28 @@ update_assignment = """
                         housework_id = %s
                     ;
                     """
+
+assigned_hwork_ids_from_rid = """
+                            SELECT
+                                housework_id
+                            FROM
+                                assignments
+                            WHERE
+                                roomie_id = %s
+                            ORDER BY
+                                housework_id
+                            ;
+                            """
+
+roomies_from_tids = """
+                    SELECT
+                        roomie_name,
+                        telegram_id
+                    FROM
+                        roomies
+                    WHERE
+                        telegram_id = ANY(%s)
+                    ORDER BY
+                        roomie_id
+                    ;
+                    """

@@ -17,15 +17,21 @@ from src.sql import (
     next_roomie_from_hwork,
     roomie_telegram_id_from_hwork,
     assigned_hwork_from_rid,
+    assigned_hwork_ids_from_rid,
     roomie_id_from_tid,
     roomie_name_from_rid,
     weekly_rol,
-    responsible_from_hwork
+    responsible_from_hwork,
+    roomies_from_tids
 )
 
 load_dotenv()
-ADMIN_USERS = {int(os.getenv("ADMIN_USER_1")), int(os.getenv("ADMIN_USER_2"))}
 
+ADMIN_USERS = {int(os.getenv("ADMIN_USER_1")), int(os.getenv("ADMIN_USER_2"))}
+PERMITED_CHATS = {int(os.getenv("ID_CHAT_PRUEBAS")), 
+                  int(os.getenv("ID_CHAT_PROD"))}
+                  #int(os.getenv("ID_PRIV")),
+                  #int(os.getenv("ID_PRIV_PRUEBAS"))}
 ASIGNADA_USAGE = (
     "USO:\n"
     "/asignada nombre_roomie nombre de la tarea [dd/mm/aaaa]\n"
@@ -35,6 +41,58 @@ ASIGNADA_USAGE = (
     "-  Si no indicas fecha, se asigna para el próximo domingo.\n"
     "-  A la tarea 'Comprar agua' no se le asigna fecha límite por defecto."
 )
+
+def is_permited_chat(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+) -> bool:
+    chat = update.effective_chat
+    return int(chat.id) in PERMITED_CHATS
+
+
+
+def mention_html(name: str, telegram_id: int) -> str:
+    """
+    Arma una mención de Telegram en HTML.
+
+    Parameters
+    ----------
+    name : str
+        Texto visible de la mención.
+    telegram_id : int
+        ID de Telegram de la persona mencionada.
+
+    Returns
+    -------
+    str
+        Enlace ``tg://user`` con el nombre escapado.
+    """
+
+    return f'<a href="tg://user?id={int(telegram_id)}">{html.escape(str(name))}</a>'
+
+
+def admin_notice(connection) -> str:
+    """
+    Arma el aviso HTML que menciona a los admins tras una rotación.
+
+    Parameters
+    ----------
+    connection : PGConnection
+        Conexión abierta a la base de datos.
+
+    Returns
+    -------
+    str
+        Aviso listo para enviar con ``parse_mode="HTML"``.
+    """
+
+    admins = pd.read_sql(roomies_from_tids, connection, params = (list(ADMIN_USERS),))
+    mentions = ", ".join(
+        mention_html(admin["roomie_name"], admin["telegram_id"])
+        for _, admin in admins.iterrows()
+    )
+
+    return f"🔔 {mentions}: Toñotrón rotó tareas."
 
 
 def format_responsable(tarea: pd.Series) -> str:
@@ -57,12 +115,43 @@ def format_responsable(tarea: pd.Series) -> str:
     else:
         fecha_limite = pd.to_datetime(tarea["fecha_limite"]).strftime(DATE_FORMAT)
 
-    mention = f'<a href="tg://user?id={int(tarea["telegram_id"])}">{html.escape(str(tarea["le_toca_a"]))}</a>'
+    mention = mention_html(tarea["le_toca_a"], tarea["telegram_id"])
 
     return (
         f"<b>{html.escape(str(tarea['tarea']))}</b>\n"
         f"👤 Le toca a: {mention}\n"
         f"📅 Fecha límite: {fecha_limite}"
+    )
+
+
+def rotate_and_report(hwork_id: int, connection) -> str:
+    """
+    Rota una tarea y arma el mensaje HTML con el nuevo responsable.
+
+    Parameters
+    ----------
+    hwork_id : int
+        ID de la tarea doméstica a rotar.
+    connection : PGConnection
+        Conexión abierta a la base de datos.
+
+    Returns
+    -------
+    str
+        Mensaje listo para enviar con ``parse_mode="HTML"``.
+    """
+
+    true_name = pd.read_sql(hwork_name_query, connection, params = (hwork_id,)).iloc[0,0]
+
+    rotate_hwork(hwork_id, connection)
+    next_name, next_tid = pd.read_sql(
+        next_roomie_from_hwork, connection, params=(hwork_id,)
+    ).iloc[0]
+    mention = mention_html(next_name, next_tid)
+
+    return (
+        f"¡Tarea '{html.escape(true_name)}' rotada correctamente!\n"
+        f"Ahora le toca a {mention}."
     )
 
 
@@ -73,8 +162,12 @@ async def terminada(
     user_id = update.effective_user.id
     
 
-
-
+    if not is_permited_chat(update, context):
+        await update.message.reply_text(
+            "Este comando solo puede usarse en el chat de roomies" 
+        )
+        return 
+    
     if not context.args:
         await update.message.reply_text(
             "USO:\n" 
@@ -94,7 +187,6 @@ async def terminada(
                 f"No se encontró la tarea '{task_name}'."
             )
             return
-        true_name = pd.read_sql(hwork_name_query, connection, params = (hwork_id,)).iloc[0,0]
 
         tid_fom_hwork = pd.read_sql(roomie_telegram_id_from_hwork, connection, params=(hwork_id,)).iloc[0,0]
 
@@ -102,15 +194,9 @@ async def terminada(
             await update.message.reply_text("No tienes autorización para rotar esta tarea.\nNo eres admin o no la tienes asignada")
             return
 
-        rotate_hwork(hwork_id, connection)
-        next_name, next_tid = pd.read_sql(
-            next_roomie_from_hwork, connection, params=(hwork_id,)
-        ).iloc[0]
-        mention = f'<a href="tg://user?id={int(next_tid)}">{html.escape(next_name)}</a>'
-
         await update.message.reply_text(
-            f"¡Tarea '{html.escape(true_name)}' rotada correctamente!\n"
-            f"Ahora le toca a {mention}.",
+            rotate_and_report(hwork_id, connection)
+            + "\n\n" + admin_notice(connection),
             parse_mode="HTML",
         )
 
@@ -286,6 +372,12 @@ async def asignar(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ) -> None:
+    
+    if not is_permited_chat(update, context):
+        await update.message.reply_text(
+            "Este comando solo puede usarse en el chat de roomies" 
+        )
+        return
 
     if int(update.effective_user.id) not in ADMIN_USERS:
         await update.message.reply_text("No tienes autorización para asignar tareas.\nSolo los admins pueden hacerlo.")
@@ -351,6 +443,63 @@ async def asignar(
         connection.rollback()
         await update.message.reply_text(
             "Toñotrón no pudo asignar la tarea."
+        )
+        raise
+
+    finally:
+        connection.close()
+
+########################
+## TERMINÉ MIS TAREAS ##
+########################
+
+async def termine_mis_tareas(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    
+    if not is_permited_chat(update, context):
+        await update.message.reply_text(
+            "Este comando solo puede usarse en el chat de roomies" 
+        )
+        return
+
+    user_id = update.effective_user.id
+    connection = get_connection()
+
+    try:
+        roomie = pd.read_sql(roomie_id_from_tid, connection, params = (int(user_id),))
+        if roomie.empty:
+            await update.message.reply_text(
+                "No estás registrado como roomie."
+            )
+            return
+
+        roomie_id = int(roomie.iloc[0,0])
+        hwork_ids = pd.read_sql(assigned_hwork_ids_from_rid, connection, params = (roomie_id,))["housework_id"]
+
+        if hwork_ids.empty:
+            await update.message.reply_text(
+                "No tienes tareas asignadas, no hay nada que terminar."
+            )
+            return
+
+        bloques = [
+            rotate_and_report(int(hwork_id), connection)
+            for hwork_id in hwork_ids
+        ]
+
+        bloques.append(admin_notice(connection))
+
+        await update.message.reply_text(
+            "\n\n".join(bloques),
+            parse_mode = "HTML"
+        )
+
+    except Exception:
+        connection.rollback()
+        await update.message.reply_text(
+            "Toñotrón no pudo terminar todas tus tareas. Revisa /mis_tareas."
         )
         raise
 
