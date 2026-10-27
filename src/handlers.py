@@ -27,9 +27,13 @@ load_dotenv()
 ADMIN_USERS = {int(os.getenv("ADMIN_USER_1")), int(os.getenv("ADMIN_USER_2"))}
 
 ASIGNADA_USAGE = (
-    "Uso: /asignada nombre_roomie nombre de la tarea [dd/mm/aaaa]\n"
-    "Ejemplo: /asignada Joshua limpiar cocina 01/11/2026\n"
-    "Si no indicas fecha, se asigna para el próximo domingo."
+    "USO:\n"
+    "/asignada nombre_roomie nombre de la tarea [dd/mm/aaaa]\n"
+    "Ejemplo:\n" 
+    "/asignada Joshua limpiar cocina 01/11/2026\n"
+    "Notas:\n"
+    "-  Si no indicas fecha, se asigna para el próximo domingo.\n"
+    "-  A la tarea 'Comprar agua' no se le asigna fecha límite por defecto."
 )
 
 
@@ -73,8 +77,10 @@ async def terminada(
 
     if not context.args:
         await update.message.reply_text(
-            "Uso: /terminada nombre de la tarea\n"
-            "Ejemplo: /terminada limpiar cocina"
+            "USO:\n" 
+            "/terminada nombre de la tarea\n"
+            "Ejemplo:\n"
+             "/terminada limpiar cocina"
         )
         return
 
@@ -239,8 +245,10 @@ async def responsable(
 
     if not context.args:
         await update.message.reply_text(
-            "Uso: /responsable nombre de la tarea\n"
-            "Ejemplo: /responsable limpiar cocina"
+            "USO:\n"
+            "/responsable nombre de la tarea\n"
+            "Ejemplo:\n"
+            "/responsable limpiar cocina"
         )
         return
 
