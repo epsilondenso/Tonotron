@@ -105,3 +105,33 @@ responsible_from_hwork =    """
                                 housework_id = %s
                             ;
                             """
+
+hwork_names_query = """
+                    SELECT
+                        housework_id,
+                        housework_name
+                    FROM
+                        housework
+                    ;
+                    """
+
+roomie_names_query = """
+                    SELECT
+                        roomie_id,
+                        roomie_name
+                    FROM
+                        roomies
+                    ;
+                    """
+
+update_assignment = """
+                    UPDATE
+                        assignments
+                    SET
+                        roomie_id = %s,
+                        assigned_at = %s,
+                        due_date = %s
+                    WHERE
+                        housework_id = %s
+                    ;
+                    """

@@ -1,5 +1,7 @@
 import unicodedata
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
+
+DATE_FORMAT = "%d/%m/%Y"
 
 
 def next_sunday() -> datetime:
@@ -30,3 +32,23 @@ def normalize_name(name):
         if unicodedata.category(char) != "Mn"
     )
     return " ".join(name.split())
+
+
+def parse_date(text: str) -> date | None:
+    """
+    Convierte un texto ``dd/mm/aaaa`` en fecha.
+
+    Parameters
+    ----------
+    text : str
+        Fecha escrita por el usuario.
+
+    Returns
+    -------
+    date or None
+        Fecha leída, o ``None`` si el texto no tiene el formato correcto.
+    """
+    try:
+        return datetime.strptime(text, DATE_FORMAT).date()
+    except ValueError:
+        return None

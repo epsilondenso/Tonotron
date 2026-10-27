@@ -5,6 +5,7 @@ from psycopg2.extensions import connection as PGConnection
 from src.connect_db import get_connection
 from src.queries import query_assignment
 from src.utils import next_sunday
+from src.sql import update_assignment
 
 
 
@@ -53,34 +54,56 @@ def rotate_hwork(hwork_id: int,
         params=(new_turn,)
     )
 
-    update_query = """
-        UPDATE 
-            assignments 
-        SET 
-            roomie_id = %s,
-            assigned_at = %s,
-            due_date = %s
-        WHERE 
-            housework_id = %s
-        ;
-    """
-
-    cursor = connection.cursor()
-
-    cursor.execute(
-        update_query,
-        (
-            int(new_id.iloc[0, 0]),
-            datetime.datetime.now().date(),
-            due_date,
-            hwork_id
-        )
+    assign_hwork(
+        hwork_id,
+        int(new_id.iloc[0, 0]),
+        due_date,
+        connection
     )
 
-    connection.commit()
-    cursor.close()
-
     return None 
+
+
+def assign_hwork(hwork_id: int,
+                 roomie_id: int,
+                 due_date: datetime.date | None,
+                 connection: PGConnection) -> None:
+    """
+    Asigna una tarea doméstica a un roomie y hace commit.
+
+    Actualiza ``roomie_id``, ``assigned_at`` (hoy) y ``due_date``
+    en ``assignments``.
+
+    Parameters
+    ----------
+    hwork_id : int
+        ID de la tarea doméstica.
+    roomie_id : int
+        ID del roomie al que se asigna.
+    due_date : datetime.date or None
+        Fecha límite de la tarea.
+    connection : PGConnection
+        Conexión abierta a la base de datos.
+
+    Returns
+    -------
+    None
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            update_assignment,
+            (
+                roomie_id,
+                datetime.datetime.now().date(),
+                due_date,
+                hwork_id
+            )
+        )
+
+    connection.commit()
+
+    return None
 
 if __name__ == "__main__":
     for i in range(1, 6, 1):
