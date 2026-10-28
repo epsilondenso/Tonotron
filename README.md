@@ -16,6 +16,7 @@ Stack: Python 3.13 · [python-telegram-bot](https://docs.python-telegram-bot.org
 | `/mis_tareas` | Cualquier roomie registrado | Cualquier chat | Lista las tareas del usuario con fecha límite y fecha de asignación. |
 | `/rol` | Cualquier roomie registrado | Cualquier chat | Muestra todas las tareas con su responsable y fecha límite. |
 | `/responsable <tarea>` | Cualquiera | Cualquier chat | Muestra quién tiene una tarea y su fecha límite (con mención). |
+| `/ayuda` | Cualquiera | Cualquier chat | Muestra cómo se usa cada comando. |
 
 Los nombres de tareas y roomies se comparan **normalizados** (minúsculas, sin acentos, espacios colapsados), así que `/terminada LIMPIAR  cocína` encuentra "Limpiar cocina".
 

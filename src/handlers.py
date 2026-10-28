@@ -39,9 +39,9 @@ PERMITED_CHATS = {int(os.getenv("ID_CHAT_PRUEBAS")),
                   #int(os.getenv("ID_PRIV_PRUEBAS"))}
 ASIGNADA_USAGE = (
     "USO:\n"
-    "/asignada nombre_roomie nombre de la tarea [dd/mm/aaaa]\n"
+    "/asignar nombre_roomie nombre de la tarea [dd/mm/aaaa]\n"
     "Ejemplo:\n" 
-    "/asignada Joshua limpiar cocina 01/11/2026\n"
+    "/asignar Joshua limpiar cocina 01/11/2026\n"
     "Notas:\n"
     "-  Si no indicas fecha, se asigna para el próximo domingo.\n"
     "-  A la tarea 'Comprar agua' no se le asigna fecha límite por defecto."
@@ -527,3 +527,31 @@ async def termine_mis_tareas(
 
     finally:
         connection.close()
+
+###########
+## AYUDA ##
+###########
+
+async def ayuda(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+) -> None:
+
+    await update.message.reply_text(
+        "COMANDOS DE TOÑOTRÓN\n\n"
+        "/terminada nombre de la tarea\n"
+        "Rota la tarea al siguiente roomie. Solo quien la tiene asignada o un admin.\n"
+        "Ejemplo: /terminada limpiar cocina\n\n"
+        "/termine_mis_tareas\n"
+        "Rota todas las tareas que tienes asignadas.\n\n"
+        "/mis_tareas\n"
+        "Muestra tus tareas asignadas.\n\n"
+        "/rol\n"
+        "Muestra el rol actual de todas las tareas.\n\n"
+        "/responsable nombre de la tarea\n"
+        "Muestra a quién le toca una tarea.\n"
+        "Ejemplo: /responsable limpiar cocina\n\n"
+        "/asignar nombre_roomie nombre de la tarea [dd/mm/aaaa]\n"
+        "Asigna una tarea a un roomie. Solo admins.\n"
+        "Ejemplo: /asignar Joshua limpiar cocina 01/11/2026"
+    )
