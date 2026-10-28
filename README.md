@@ -55,6 +55,10 @@ Los nombres de tareas y roomies se comparan **normalizados** (minúsculas, sin a
 - Si no hay nada que avisar, no manda mensaje. Las tareas sin fecha límite ("Comprar agua") nunca aparecen.
 - No guarda estado: si el bot está apagado a la hora del aviso, ese día no se avisa (al siguiente sí).
 
+**Imágenes aleatorias** (`maybe_send_rfm` en `handlers.py`)
+- Al inicio de cada handler de comando se sortea un entero uniforme entre 1 y 10 (`random.randint`). Si sale 5 (probabilidad 1/10), el bot responde con una imagen al azar de la carpeta `rfm/` y luego sigue con el comando normalmente.
+- Toma cualquier `.jpg`, `.jpeg`, `.png`, `.gif` o `.webp` de `rfm/`: para agregar o quitar imágenes basta con tocar la carpeta. Si está vacía o el envío falla, el comando sigue sin imagen.
+
 **Permisos**
 - Admins: los Telegram IDs en `ADMIN_USER_1` y `ADMIN_USER_2`. Se les menciona cada vez que hay rotación.
 - Chats permitidos: `ID_CHAT_PRUEBAS` e `ID_CHAT_PROD`. Los comandos que modifican datos solo funcionan ahí.
@@ -73,6 +77,7 @@ src/
   sql.py          Todas las consultas SQL como strings (parámetros con %s).
   connect_db.py   get_connection() con las variables DB_*.
   utils.py        next_sunday(), normalize_name(), parse_date(); DATE_FORMAT = dd/mm/aaaa.
+rfm/              Imágenes que el bot manda al azar (se copian a la imagen de Docker).
 db/
   tonotron_schema.sql            Dump del esquema (sin datos).
   migrations/001_rotation_log.sql Tabla rotation_log (no está en el dump).

@@ -1,5 +1,9 @@
 import os
 import html
+import random
+import logging
+import time
+from pathlib import Path
 from datetime import date
 from dotenv import load_dotenv
 
@@ -83,6 +87,54 @@ NUEVO_ROOMIE_USAGE = (
 )
 ROOMIE_FIELD_MAX_LEN = 15
 HWORK_NAME_MAX_LEN = 50
+
+RFM_DIR = Path(__file__).resolve().parent.parent / "rfm"
+RFM_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+# Probabilidad 1/10: se sortea un entero uniforme en [1, 10] y se envía si sale 5.
+RFM_ROLL_MAX = 10
+RFM_ROLL_HIT = 5
+
+logger = logging.getLogger(__name__)
+
+
+async def maybe_send_rfm(update: Update) -> None:
+    """
+    Con probabilidad 1/10, envía al chat una imagen aleatoria de ``rfm/``.
+
+    Se llama al inicio de cada handler, antes de su flujo normal. Si la
+    carpeta no existe, no tiene imágenes o el envío falla, no hace nada
+    más que registrar el error: el comando siempre sigue.
+
+    Parameters
+    ----------
+    update : Update
+        Update del comando; la imagen se envía como respuesta a su mensaje.
+
+    Returns
+    -------
+    None
+    """
+
+    if random.randint(1, RFM_ROLL_MAX) != RFM_ROLL_HIT:
+        return None
+
+    images = [
+        path for path in RFM_DIR.glob("*")
+        if path.suffix.lower() in RFM_EXTENSIONS
+    ]
+    if not images:
+        return None
+
+    try:
+        with random.choice(images).open("rb") as image:
+            await update.message.reply_photo(image)
+        time.sleep(5)
+        
+    except Exception:
+        logger.exception("No se pudo enviar la imagen de rfm.")
+
+    return None
+
 
 def is_permited_chat(
     update: Update,
@@ -201,6 +253,7 @@ async def terminada(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ) -> None:
+    await maybe_send_rfm(update)
     user_id = update.effective_user.id
     
 
@@ -268,6 +321,7 @@ async def mis_tareas(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ) -> None:
+    await maybe_send_rfm(update)
 
     try:
         user_id = update.effective_user.id
@@ -325,6 +379,7 @@ async def rol_semanal(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ) -> None:
+    await maybe_send_rfm(update)
 
     try:
         user_id = update.effective_user.id
@@ -378,6 +433,7 @@ async def responsable(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ) -> None:
+    await maybe_send_rfm(update)
 
     if not context.args:
         await update.message.reply_text(
@@ -422,6 +478,7 @@ async def asignar(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ) -> None:
+    await maybe_send_rfm(update)
     
     if not is_permited_chat(update, context):
         await update.message.reply_text(
@@ -507,6 +564,7 @@ async def termine_mis_tareas(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ) -> None:
+    await maybe_send_rfm(update)
     
     if not is_permited_chat(update, context):
         await update.message.reply_text(
@@ -573,6 +631,7 @@ async def ver_tareas(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ) -> None:
+    await maybe_send_rfm(update)
 
     connection = get_connection()
 
@@ -612,6 +671,7 @@ async def ver_roomies(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ) -> None:
+    await maybe_send_rfm(update)
 
     connection = get_connection()
 
@@ -652,6 +712,7 @@ async def nueva_tarea(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ) -> None:
+    await maybe_send_rfm(update)
 
     if not is_permited_chat(update, context):
         await update.message.reply_text(
@@ -757,6 +818,7 @@ async def nuevo_roomie(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ) -> None:
+    await maybe_send_rfm(update)
 
     if not is_permited_chat(update, context):
         await update.message.reply_text(
@@ -883,6 +945,7 @@ async def ayuda(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ) -> None:
+    await maybe_send_rfm(update)
 
     await update.message.reply_text(
         "COMANDOS DE TOÑOTRÓN\n\n"
