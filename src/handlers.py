@@ -9,7 +9,12 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from src.connect_db import get_connection
-from src.rotate_hwork import rotate_hwork, assign_hwork
+from src.rotate_hwork import (
+    rotate_hwork,
+    assign_hwork,
+    rotation_block_reason,
+    WATER_HWORK_ID
+)
 from src.queries import get_housework_id, get_roomie_id
 from src.utils import next_sunday, parse_date, DATE_FORMAT
 from src.sql import (
@@ -194,6 +199,14 @@ async def terminada(
             await update.message.reply_text("No tienes autorización para rotar esta tarea.\nNo eres admin o no la tienes asignada")
             return
 
+        block_reason = rotation_block_reason(hwork_id, connection)
+        if block_reason is not None:
+            true_name = pd.read_sql(hwork_name_query, connection, params = (hwork_id,)).iloc[0,0]
+            await update.message.reply_text(
+                f"⏳ La tarea '{true_name}' {block_reason}"
+            )
+            return
+
         await update.message.reply_text(
             rotate_and_report(hwork_id, connection)
             + "\n\n" + admin_notice(connection),
@@ -227,7 +240,7 @@ async def mis_tareas(
         tareas = pd.read_sql(assigned_hwork_from_rid, connection, params = (int(roomie_id),))
         if tareas.empty:
             await update.message.reply_text(
-                f"Hola, {roomie_name}. Por ahora no tienes tareas asignadas, pero cuídate la espalda."
+                f"Hola, {roomie_name}. Por ahora no tienes tareas asignadas."
             )
             return
         else:
@@ -427,7 +440,7 @@ async def asignar(
             )
             return
         
-        if int(hwork_id) == 4 and not due_date_given: #Comprar agua no lleva fecha límite
+        if int(hwork_id) == WATER_HWORK_ID and not due_date_given: #Comprar agua no lleva fecha límite
             due_date = None
 
         assign_hwork(int(hwork_id), int(roomie_id), due_date, connection)
@@ -484,12 +497,21 @@ async def termine_mis_tareas(
             )
             return
 
-        bloques = [
-            rotate_and_report(int(hwork_id), connection)
-            for hwork_id in hwork_ids
-        ]
+        bloques = []
+        rotated_any = False
 
-        bloques.append(admin_notice(connection))
+        for hwork_id in hwork_ids:
+            block_reason = rotation_block_reason(int(hwork_id), connection)
+
+            if block_reason is None:
+                bloques.append(rotate_and_report(int(hwork_id), connection))
+                rotated_any = True
+            else:
+                true_name = pd.read_sql(hwork_name_query, connection, params = (int(hwork_id),)).iloc[0,0]
+                bloques.append(f"⏳ La tarea '{html.escape(true_name)}' {block_reason}")
+
+        if rotated_any:
+            bloques.append(admin_notice(connection))
 
         await update.message.reply_text(
             "\n\n".join(bloques),

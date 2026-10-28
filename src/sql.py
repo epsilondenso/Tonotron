@@ -160,3 +160,33 @@ roomies_from_tids = """
                         roomie_id
                     ;
                     """
+
+due_date_from_hwork = """
+                    SELECT
+                        due_date
+                    FROM
+                        assignments
+                    WHERE
+                        housework_id = %s
+                    ;
+                    """
+
+rotations_on_day = """
+                    SELECT
+                        COUNT(*)
+                    FROM
+                        rotation_log
+                    WHERE
+                        housework_id = %s
+                    AND
+                        rotated_at::date = %s
+                    ;
+                    """
+
+insert_rotation_log = """
+                    INSERT INTO
+                        rotation_log (housework_id, rotated_at)
+                    VALUES
+                        (%s, %s)
+                    ;
+                    """

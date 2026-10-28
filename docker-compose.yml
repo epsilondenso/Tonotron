@@ -23,6 +23,8 @@ services:
     environment:
       DB_HOST: db
       DB_PORT: 5432
+      # Los límites de rotación dependen del día local, no de UTC.
+      TZ: America/Mexico_City
     depends_on:
       db:
         condition: service_healthy
