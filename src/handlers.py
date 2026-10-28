@@ -69,13 +69,13 @@ NUEVA_TAREA_USAGE = (
     "-  La tarea nueva se asigna al roomie del primer turno, para el próximo domingo.\n"
     "-  'Comprar agua' no se puede borrar."
 )
-NUEVA_ROOMIE_USAGE = (
+NUEVO_ROOMIE_USAGE = (
     "USO:\n"
-    "/nueva_roomie agregar nombre apellido teléfono [telegram_id]\n"
-    "/nueva_roomie borrar nombre\n"
+    "/nuevo_roomie agregar nombre apellido teléfono [telegram_id]\n"
+    "/nuevo_roomie borrar nombre\n"
     "Ejemplos:\n"
-    "/nueva_roomie agregar Ana López 5512345678 123456789\n"
-    "/nueva_roomie borrar Ana\n"
+    "/nuevo_roomie agregar Ana López 5512345678 123456789\n"
+    "/nuevo_roomie borrar Ana\n"
     "Notas:\n"
     "-  Si no das el telegram_id, usa el comando respondiendo a un mensaje de la persona.\n"
     "-  El roomie nuevo toma el último turno.\n"
@@ -750,10 +750,10 @@ async def nueva_tarea(
         connection.close()
 
 ##################
-## NUEVA ROOMIE ##
+## NUEVO ROOMIE ##
 ##################
 
-async def nueva_roomie(
+async def nuevo_roomie(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ) -> None:
@@ -769,7 +769,7 @@ async def nueva_roomie(
         return
 
     if not context.args or context.args[0].lower() not in ("agregar", "borrar"):
-        await update.message.reply_text(NUEVA_ROOMIE_USAGE)
+        await update.message.reply_text(NUEVO_ROOMIE_USAGE)
         return
 
     action, *params = context.args
@@ -785,12 +785,12 @@ async def nueva_roomie(
             name, last_name, phone = params
             telegram_id = str(reply_to.from_user.id)
         else:
-            await update.message.reply_text(NUEVA_ROOMIE_USAGE)
+            await update.message.reply_text(NUEVO_ROOMIE_USAGE)
             return
 
         if not telegram_id.isdigit():
             await update.message.reply_text(
-                "El telegram_id debe ser un número.\n\n" + NUEVA_ROOMIE_USAGE
+                "El telegram_id debe ser un número.\n\n" + NUEVO_ROOMIE_USAGE
             )
             return
 
@@ -801,7 +801,7 @@ async def nueva_roomie(
             return
 
     elif len(params) != 1:
-        await update.message.reply_text(NUEVA_ROOMIE_USAGE)
+        await update.message.reply_text(NUEVO_ROOMIE_USAGE)
         return
 
     connection = get_connection()

@@ -343,3 +343,52 @@ restore_negated_turns = """
                         turn < 0
                     ;
                     """
+
+# Tareas cuya fecha límite cae en un día dado (avisos de "por vencer").
+hwork_due_on = """
+                    SELECT
+                        housework_name AS tarea,
+                        roomie_name AS le_toca_a,
+                        telegram_id,
+                        due_date AS fecha_limite
+                    FROM
+                        assignments
+                    INNER JOIN
+                        housework
+                    USING
+                        (housework_id)
+                    INNER JOIN
+                        roomies
+                    USING
+                        (roomie_id)
+                    WHERE
+                        due_date = %s
+                    ORDER BY
+                        housework_id
+                    ;
+                    """
+
+# Tareas con fecha límite anterior a un día dado (recordatorios de vencidas).
+overdue_hwork = """
+                    SELECT
+                        housework_name AS tarea,
+                        roomie_name AS le_toca_a,
+                        telegram_id,
+                        due_date AS fecha_limite
+                    FROM
+                        assignments
+                    INNER JOIN
+                        housework
+                    USING
+                        (housework_id)
+                    INNER JOIN
+                        roomies
+                    USING
+                        (roomie_id)
+                    WHERE
+                        due_date < %s
+                    ORDER BY
+                        due_date,
+                        housework_id
+                    ;
+                    """

@@ -18,8 +18,9 @@ from src.handlers import (
     ver_tareas,
     ver_roomies,
     nueva_tarea,
-    nueva_roomie
+    nuevo_roomie
 )
+from src.notifications import schedule_notifications
 
 load_dotenv()
 BOT_TOKEN = os.getenv("PRUEBAS_TOKEN")
@@ -36,7 +37,8 @@ def main() -> None:
     app.add_handler(CommandHandler("ver_tareas",  ver_tareas))
     app.add_handler(CommandHandler("ver_roomies",  ver_roomies))
     app.add_handler(CommandHandler("nueva_tarea",  nueva_tarea))
-    app.add_handler(CommandHandler("nuevo_roomie",  nueva_roomie))
+    app.add_handler(CommandHandler("nuevo_roomie",  nuevo_roomie))
+    schedule_notifications(app)
     app.run_polling()
 
 

@@ -26,8 +26,8 @@ Stack: Python 3.13 · [python-telegram-bot](https://docs.python-telegram-bot.org
 |---|---|
 | `/nueva_tarea agregar <tarea>` | Crea la tarea (máx. 50 caracteres) y la asigna al roomie del primer turno, para el próximo domingo. Rechaza nombres que ya existan (comparando normalizado). |
 | `/nueva_tarea borrar <tarea>` | Borra la tarea junto con su asignación y su historial en `rotation_log`. "Comprar agua" no se puede borrar (ver `WATER_HWORK_ID`). |
-| `/nueva_roomie agregar <nombre> <apellido> <teléfono> [telegram_id]` | Registra a un roomie con el último turno. Si no se da el `telegram_id`, hay que mandar el comando **respondiendo a un mensaje** de esa persona y se toma de ahí. Cada campo máx. 15 caracteres; el nombre y el `telegram_id` no pueden repetirse. |
-| `/nueva_roomie borrar <nombre>` | Borra al roomie y recorre una posición los turnos posteriores. Se niega si tiene tareas asignadas: hay que pasarlas antes con `/asignar`. |
+| `/nuevo_roomie agregar <nombre> <apellido> <teléfono> [telegram_id]` | Registra a un roomie con el último turno. Si no se da el `telegram_id`, hay que mandar el comando **respondiendo a un mensaje** de esa persona y se toma de ahí. Cada campo máx. 15 caracteres; el nombre y el `telegram_id` no pueden repetirse. |
+| `/nuevo_roomie borrar <nombre>` | Borra al roomie y recorre una posición los turnos posteriores. Se niega si tiene tareas asignadas: hay que pasarlas antes con `/asignar`. |
 
 Los nombres de tareas y roomies se comparan **normalizados** (minúsculas, sin acentos, espacios colapsados), así que `/terminada LIMPIAR  cocína` encuentra "Limpiar cocina".
 
@@ -48,6 +48,13 @@ Los nombres de tareas y roomies se comparan **normalizados** (minúsculas, sin a
 
 **"Comprar agua"** (`WATER_HWORK_ID = 4`): no lleva fecha límite y puede rotarse cualquier día (sí respeta el límite diario). En `/asignar` solo se le pone fecha si se da explícitamente.
 
+**Avisos de vencimiento** (`src/notifications.py`)
+- Todos los días a `NOTIFICATION_TIME` (hora local), un job de la `JobQueue` revisa las fechas límite y publica **un solo mensaje** en el chat de avisos, mencionando a cada responsable:
+  - **Por vencer**: tareas cuya `due_date` es exactamente dentro de `NOTICE_DAYS_BEFORE` (2) días. Con la fecha límite del domingo, el aviso sale el viernes.
+  - **Vencidas**: tareas con `due_date` anterior a hoy, con cuántos días llevan vencidas. Se repite cada día hasta que alguien las rote con `/terminada`, `/termine_mis_tareas` o las reasigne con `/asignar` (eso cambia la `due_date`).
+- Si no hay nada que avisar, no manda mensaje. Las tareas sin fecha límite ("Comprar agua") nunca aparecen.
+- No guarda estado: si el bot está apagado a la hora del aviso, ese día no se avisa (al siguiente sí).
+
 **Permisos**
 - Admins: los Telegram IDs en `ADMIN_USER_1` y `ADMIN_USER_2`. Se les menciona cada vez que hay rotación.
 - Chats permitidos: `ID_CHAT_PRUEBAS` e `ID_CHAT_PROD`. Los comandos que modifican datos solo funcionan ahí.
@@ -60,6 +67,7 @@ Los nombres de tareas y roomies se comparan **normalizados** (minúsculas, sin a
 src/
   bot.py          Punto de entrada: registra los CommandHandler y hace polling.
   handlers.py     Un handler async por comando + helpers de formato (menciones HTML, aviso a admins).
+  notifications.py Job diario de avisos de tareas por vencer y vencidas; schedule_notifications(app).
   rotate_hwork.py Lógica de rotación, asignación y bloqueos. Constantes de negocio aquí.
   queries.py      Búsqueda de IDs por nombre normalizado.
   sql.py          Todas las consultas SQL como strings (parámetros con %s).
@@ -72,7 +80,7 @@ db/
   init/                          (ignorada por git) scripts que Postgres corre al crear el volumen.
 ```
 
-Patrón de cada handler: validar chat/permisos/argumentos → abrir conexión → consultar con `pd.read_sql` → modificar con cursor + `commit` (dentro de `assign_hwork`, o en el handler para `/nueva_tarea` y `/nueva_roomie`) → responder en HTML. En error hace `rollback`, responde un mensaje genérico y relanza la excepción; siempre cierra la conexión.
+Patrón de cada handler: validar chat/permisos/argumentos → abrir conexión → consultar con `pd.read_sql` → modificar con cursor + `commit` (dentro de `assign_hwork`, o en el handler para `/nueva_tarea` y `/nuevo_roomie`) → responder en HTML. En error hace `rollback`, responde un mensaje genérico y relanza la excepción; siempre cierra la conexión.
 
 ---
 
@@ -101,6 +109,8 @@ Copiar `.env.example` a `.env` y llenar:
 | `ROTATIONS_PER_DAY` | `1` en producción; algo grande (p. ej. `1000`) para pruebas. |
 | `ADMIN_USER_1`, `ADMIN_USER_2` | Telegram IDs de los admins. **Obligatorias** (no están en `.env.example`). |
 | `ID_CHAT_PRUEBAS`, `ID_CHAT_PROD` | IDs de los chats permitidos. **Obligatorias** (no están en `.env.example`). |
+| `ID_CHAT_NOTIFICACIONES` | Chat donde se publican los avisos. Opcional; por defecto `ID_CHAT_PROD`. |
+| `NOTIFICATION_TIME` | Hora local (`HH:MM`) del aviso diario. Por defecto `10:00`. |
 
 Si falta alguna de las obligatorias, `handlers.py` truena al importarse (`int(None)`).
 
