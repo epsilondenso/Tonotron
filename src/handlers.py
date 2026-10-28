@@ -27,7 +27,19 @@ from src.sql import (
     roomie_name_from_rid,
     weekly_rol,
     responsible_from_hwork,
-    roomies_from_tids
+    roomies_from_tids,
+    hwork_list,
+    roomies_by_turn,
+    next_roomie_by_turn,
+    insert_housework,
+    insert_assignment,
+    delete_rotation_log_from_hwork,
+    delete_assignment_from_hwork,
+    delete_housework,
+    insert_roomie,
+    delete_roomie,
+    negate_turns_after,
+    restore_negated_turns
 )
 
 load_dotenv()
@@ -46,6 +58,31 @@ ASIGNADA_USAGE = (
     "-  Si no indicas fecha, se asigna para el próximo domingo.\n"
     "-  A la tarea 'Comprar agua' no se le asigna fecha límite por defecto."
 )
+NUEVA_TAREA_USAGE = (
+    "USO:\n"
+    "/nueva_tarea agregar nombre de la tarea\n"
+    "/nueva_tarea borrar nombre de la tarea\n"
+    "Ejemplos:\n"
+    "/nueva_tarea agregar lavar baño\n"
+    "/nueva_tarea borrar lavar baño\n"
+    "Notas:\n"
+    "-  La tarea nueva se asigna al roomie del primer turno, para el próximo domingo.\n"
+    "-  'Comprar agua' no se puede borrar."
+)
+NUEVA_ROOMIE_USAGE = (
+    "USO:\n"
+    "/nueva_roomie agregar nombre apellido teléfono [telegram_id]\n"
+    "/nueva_roomie borrar nombre\n"
+    "Ejemplos:\n"
+    "/nueva_roomie agregar Ana López 5512345678 123456789\n"
+    "/nueva_roomie borrar Ana\n"
+    "Notas:\n"
+    "-  Si no das el telegram_id, usa el comando respondiendo a un mensaje de la persona.\n"
+    "-  El roomie nuevo toma el último turno.\n"
+    "-  No se puede borrar a alguien con tareas asignadas; reasígnalas antes con /asignar."
+)
+ROOMIE_FIELD_MAX_LEN = 15
+HWORK_NAME_MAX_LEN = 50
 
 def is_permited_chat(
     update: Update,
@@ -528,6 +565,316 @@ async def termine_mis_tareas(
     finally:
         connection.close()
 
+################
+## VER TAREAS ##
+################
+
+async def ver_tareas(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+) -> None:
+
+    connection = get_connection()
+
+    try:
+        tareas = pd.read_sql(hwork_list, connection)
+        if tareas.empty:
+            await update.message.reply_text(
+                "No hay tareas registradas."
+            )
+            return
+
+        lineas = [
+            f"• {html.escape(str(tarea))}"
+            for tarea in tareas["tarea"]
+        ]
+
+        await update.message.reply_text(
+            "<b>Tareas registradas:</b>\n\n" + "\n".join(lineas),
+            parse_mode = "HTML"
+        )
+
+    except Exception:
+        connection.rollback()
+        await update.message.reply_text(
+            "Toñotrón no pudo consultar la lista de tareas."
+        )
+        raise
+
+    finally:
+        connection.close()
+
+#################
+## VER ROOMIES ##
+#################
+
+async def ver_roomies(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+) -> None:
+
+    connection = get_connection()
+
+    try:
+        roomies = pd.read_sql(roomies_by_turn, connection)
+        if roomies.empty:
+            await update.message.reply_text(
+                "No hay roomies registrados."
+            )
+            return
+
+        lineas = [
+            f"{roomie['turno']}. {html.escape(str(roomie['roomie_name']))} "
+            f"{html.escape(str(roomie['last_name']))}"
+            for _, roomie in roomies.iterrows()
+        ]
+
+        await update.message.reply_text(
+            "<b>Roomies por turno:</b>\n\n" + "\n".join(lineas),
+            parse_mode = "HTML"
+        )
+
+    except Exception:
+        connection.rollback()
+        await update.message.reply_text(
+            "Toñotrón no pudo consultar la lista de roomies."
+        )
+        raise
+
+    finally:
+        connection.close()
+
+#################
+## NUEVA TAREA ##
+#################
+
+async def nueva_tarea(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+) -> None:
+
+    if not is_permited_chat(update, context):
+        await update.message.reply_text(
+            "Este comando solo puede usarse en el chat de roomies"
+        )
+        return
+
+    if int(update.effective_user.id) not in ADMIN_USERS:
+        await update.message.reply_text("No tienes autorización para modificar tareas.\nSolo los admins pueden hacerlo.")
+        return
+
+    if len(context.args) < 2 or context.args[0].lower() not in ("agregar", "borrar"):
+        await update.message.reply_text(NUEVA_TAREA_USAGE)
+        return
+
+    action = context.args[0].lower()
+    task_name = " ".join(context.args[1:])
+
+    if action == "agregar" and len(task_name) > HWORK_NAME_MAX_LEN:
+        await update.message.reply_text(
+            f"El nombre de la tarea no puede pasar de {HWORK_NAME_MAX_LEN} caracteres."
+        )
+        return
+
+    connection = get_connection()
+
+    try:
+        hwork_id = get_housework_id(task_name, connection)
+
+        if action == "agregar":
+            if hwork_id is not None:
+                await update.message.reply_text(
+                    f"La tarea '{task_name}' ya existe."
+                )
+                return
+
+            first_roomie = pd.read_sql(next_roomie_by_turn, connection, params = (0,))
+            if first_roomie.empty:
+                await update.message.reply_text(
+                    "No hay roomies registrados a quien asignar la tarea."
+                )
+                return
+
+            with connection.cursor() as cursor:
+                cursor.execute(insert_housework, (task_name,))
+                new_hwork_id = cursor.fetchone()[0]
+                cursor.execute(
+                    insert_assignment,
+                    (new_hwork_id, int(first_roomie.iloc[0,0]), next_sunday().date())
+                )
+
+            connection.commit()
+
+            tarea = pd.read_sql(responsible_from_hwork, connection, params = (int(new_hwork_id),)).iloc[0]
+
+            await update.message.reply_text(
+                "¡Tarea agregada correctamente!\n\n" + format_responsable(tarea),
+                parse_mode = "HTML"
+            )
+
+        else:
+            if hwork_id is None:
+                await update.message.reply_text(
+                    f"No se encontró la tarea '{task_name}'."
+                )
+                return
+
+            # El bot depende de este ID para tratar "Comprar agua" de forma especial.
+            if int(hwork_id) == WATER_HWORK_ID:
+                await update.message.reply_text(
+                    "La tarea 'Comprar agua' no se puede borrar."
+                )
+                return
+
+            true_name = pd.read_sql(hwork_name_query, connection, params = (int(hwork_id),)).iloc[0,0]
+
+            with connection.cursor() as cursor:
+                cursor.execute(delete_rotation_log_from_hwork, (int(hwork_id),))
+                cursor.execute(delete_assignment_from_hwork, (int(hwork_id),))
+                cursor.execute(delete_housework, (int(hwork_id),))
+
+            connection.commit()
+
+            await update.message.reply_text(
+                f"Tarea '{true_name}' borrada correctamente."
+            )
+
+    except Exception:
+        connection.rollback()
+        await update.message.reply_text(
+            "Toñotrón no pudo modificar las tareas."
+        )
+        raise
+
+    finally:
+        connection.close()
+
+##################
+## NUEVA ROOMIE ##
+##################
+
+async def nueva_roomie(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+) -> None:
+
+    if not is_permited_chat(update, context):
+        await update.message.reply_text(
+            "Este comando solo puede usarse en el chat de roomies"
+        )
+        return
+
+    if int(update.effective_user.id) not in ADMIN_USERS:
+        await update.message.reply_text("No tienes autorización para modificar roomies.\nSolo los admins pueden hacerlo.")
+        return
+
+    if not context.args or context.args[0].lower() not in ("agregar", "borrar"):
+        await update.message.reply_text(NUEVA_ROOMIE_USAGE)
+        return
+
+    action, *params = context.args
+    action = action.lower()
+
+    if action == "agregar":
+        reply_to = update.message.reply_to_message
+
+        # Sin telegram_id explícito, se toma el del autor del mensaje respondido.
+        if len(params) == 4:
+            name, last_name, phone, telegram_id = params
+        elif len(params) == 3 and reply_to is not None:
+            name, last_name, phone = params
+            telegram_id = str(reply_to.from_user.id)
+        else:
+            await update.message.reply_text(NUEVA_ROOMIE_USAGE)
+            return
+
+        if not telegram_id.isdigit():
+            await update.message.reply_text(
+                "El telegram_id debe ser un número.\n\n" + NUEVA_ROOMIE_USAGE
+            )
+            return
+
+        if any(len(field) > ROOMIE_FIELD_MAX_LEN for field in (name, last_name, phone, telegram_id)):
+            await update.message.reply_text(
+                f"Nombre, apellido, teléfono y telegram_id no pueden pasar de {ROOMIE_FIELD_MAX_LEN} caracteres."
+            )
+            return
+
+    elif len(params) != 1:
+        await update.message.reply_text(NUEVA_ROOMIE_USAGE)
+        return
+
+    connection = get_connection()
+
+    try:
+        if action == "agregar":
+            # Los comandos buscan a los roomies por nombre, así que no puede repetirse.
+            if get_roomie_id(name, connection) is not None:
+                await update.message.reply_text(
+                    f"Ya hay un roomie llamado '{name}'. Usa otro nombre."
+                )
+                return
+
+            if not pd.read_sql(roomie_id_from_tid, connection, params = (int(telegram_id),)).empty:
+                await update.message.reply_text(
+                    "Ese telegram_id ya está registrado."
+                )
+                return
+
+            with connection.cursor() as cursor:
+                cursor.execute(insert_roomie, (name, last_name, phone, telegram_id))
+                turn = cursor.fetchone()[0]
+
+            connection.commit()
+
+            await update.message.reply_text(
+                "¡Roomie agregado correctamente!\n\n"
+                f"{mention_html(name, telegram_id)} tiene el turno {turn}.",
+                parse_mode = "HTML"
+            )
+
+        else:
+            roomie_id = get_roomie_id(params[0], connection)
+            if roomie_id is None:
+                await update.message.reply_text(
+                    f"No se encontró al roomie '{params[0]}'."
+                )
+                return
+
+            roomie_name = pd.read_sql(roomie_name_from_rid, connection, params = (int(roomie_id),)).iloc[0,0]
+            tareas = pd.read_sql(assigned_hwork_from_rid, connection, params = (int(roomie_id),))
+
+            if not tareas.empty:
+                await update.message.reply_text(
+                    f"No se puede borrar a {roomie_name} porque tiene asignadas: "
+                    + ", ".join(tareas["tarea"])
+                    + ".\nReasígnalas antes con /asignar."
+                )
+                return
+
+            with connection.cursor() as cursor:
+                cursor.execute(delete_roomie, (int(roomie_id),))
+                turn = cursor.fetchone()[0]
+                cursor.execute(negate_turns_after, (turn,))
+                cursor.execute(restore_negated_turns)
+
+            connection.commit()
+
+            await update.message.reply_text(
+                f"Roomie '{roomie_name}' borrado correctamente. "
+                "Los turnos siguientes se recorrieron una posición."
+            )
+
+    except Exception:
+        connection.rollback()
+        await update.message.reply_text(
+            "Toñotrón no pudo modificar los roomies."
+        )
+        raise
+
+    finally:
+        connection.close()
+
 ###########
 ## AYUDA ##
 ###########
@@ -539,19 +886,29 @@ async def ayuda(
 
     await update.message.reply_text(
         "COMANDOS DE TOÑOTRÓN\n\n"
-        "/terminada nombre de la tarea\n"
-        "Rota la tarea al siguiente roomie. Solo quien la tiene asignada o un admin.\n"
-        "Ejemplo: /terminada limpiar cocina\n\n"
-        "/termine_mis_tareas\n"
-        "Rota todas las tareas que tienes asignadas.\n\n"
+        "━━ CONSULTA ━━\n\n"
         "/mis_tareas\n"
-        "Muestra tus tareas asignadas.\n\n"
+        "    Muestra tus tareas asignadas.\n\n"
         "/rol\n"
-        "Muestra el rol actual de todas las tareas.\n\n"
+        "    Muestra el rol actual de todas las tareas.\n\n"
         "/responsable nombre de la tarea\n"
-        "Muestra a quién le toca una tarea.\n"
-        "Ejemplo: /responsable limpiar cocina\n\n"
+        "    Muestra a quién le toca una tarea.\n"
+        "    Ejemplo:\n"
+        "        /responsable limpiar cocina\n\n"
+        "/ver_tareas\n"
+        "    Muestra la lista de tareas registradas.\n\n"
+        "/ver_roomies\n"
+        "    Muestra la lista de roomies con su turno.\n\n"
+        "━━ ROTACIÓN DE TAREAS ━━\n\n"
+        "/terminada nombre de la tarea\n"
+        "    Rota la tarea al siguiente roomie. Solo quien la tiene asignada o un admin.\n"
+        "    Ejemplo:\n"
+        "        /terminada limpiar cocina\n\n"
+        "/termine_mis_tareas\n"
+        "    Rota todas las tareas que tienes asignadas.\n\n"
+        "━━ SOLO ADMINS ━━\n\n"
         "/asignar nombre_roomie nombre de la tarea [dd/mm/aaaa]\n"
-        "Asigna una tarea a un roomie. Solo admins.\n"
-        "Ejemplo: /asignar Joshua limpiar cocina 01/11/2026"
+        "    Asigna una tarea a un roomie.\n"
+        "    Ejemplo:\n"
+        "        /asignar Joshua limpiar cocina 01/11/2026"
     )

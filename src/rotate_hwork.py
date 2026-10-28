@@ -5,10 +5,11 @@ import datetime
 from psycopg2.extensions import connection as PGConnection
 
 from src.connect_db import get_connection
-from src.queries import query_assignment
 from src.utils import next_sunday
 from src.sql import (
     update_assignment,
+    current_turn_from_hwork,
+    next_roomie_by_turn,
     due_date_from_hwork,
     rotations_on_day,
     insert_rotation_log
@@ -28,8 +29,9 @@ def rotate_hwork(hwork_id: int,
     """
     Rota una tarea doméstica al roomie del siguiente turno.
 
-    Avanza el turno (cíclico de 1 a 6), actualiza ``roomie_id``,
-    ``assigned_at`` y ``due_date`` en ``assignments`` y hace commit.
+    Pasa la tarea al roomie con el siguiente turno (al llegar al último
+    vuelve al primero), actualiza ``roomie_id``, ``assigned_at`` y
+    ``due_date`` en ``assignments`` y hace commit.
 
     Parameters
     ----------
@@ -43,29 +45,14 @@ def rotate_hwork(hwork_id: int,
     None
     """
 
-    h_id, r_id, turn = query_assignment(
-        connection, 
-        hwork_id
-    ) 
+    turn = pd.read_sql(current_turn_from_hwork, connection, params = (hwork_id,)).iloc[0,0]
 
-    new_turn = turn + 1 if turn < 6 else 1 
-
-    due_date = None if h_id == WATER_HWORK_ID else next_sunday().date()
-
-    r_id_query = """
-        SELECT 
-            roomie_id 
-        FROM 
-            roomies 
-        WHERE 
-            turn = %s
-        ;
-    """
+    due_date = None if hwork_id == WATER_HWORK_ID else next_sunday().date()
 
     new_id = pd.read_sql(
-        con=connection, 
-        sql=r_id_query,
-        params=(new_turn,)
+        con=connection,
+        sql=next_roomie_by_turn,
+        params=(int(turn),)
     )
 
     # Se registra en la misma transacción; assign_hwork hace el commit.

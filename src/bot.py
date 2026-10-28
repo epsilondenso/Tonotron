@@ -14,7 +14,11 @@ from src.handlers import (
     responsable,
     asignar,
     termine_mis_tareas,
-    ayuda
+    ayuda,
+    ver_tareas,
+    ver_roomies,
+    nueva_tarea,
+    nueva_roomie
 )
 
 load_dotenv()
@@ -29,6 +33,10 @@ def main() -> None:
     app.add_handler(CommandHandler("asignar",  asignar))
     app.add_handler(CommandHandler("termine_mis_tareas",  termine_mis_tareas))
     app.add_handler(CommandHandler("ayuda",  ayuda))
+    app.add_handler(CommandHandler("ver_tareas",  ver_tareas))
+    app.add_handler(CommandHandler("ver_roomies",  ver_roomies))
+    app.add_handler(CommandHandler("nueva_tarea",  nueva_tarea))
+    app.add_handler(CommandHandler("nuevo_roomie",  nueva_roomie))
     app.run_polling()
 
 

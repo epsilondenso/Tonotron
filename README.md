@@ -16,7 +16,18 @@ Stack: Python 3.13 · [python-telegram-bot](https://docs.python-telegram-bot.org
 | `/mis_tareas` | Cualquier roomie registrado | Cualquier chat | Lista las tareas del usuario con fecha límite y fecha de asignación. |
 | `/rol` | Cualquier roomie registrado | Cualquier chat | Muestra todas las tareas con su responsable y fecha límite. |
 | `/responsable <tarea>` | Cualquiera | Cualquier chat | Muestra quién tiene una tarea y su fecha límite (con mención). |
-| `/ayuda` | Cualquiera | Cualquier chat | Muestra cómo se usa cada comando. |
+| `/ver_tareas` | Cualquiera | Cualquier chat | Lista las tareas registradas en la base. |
+| `/ver_roomies` | Cualquiera | Cualquier chat | Lista los roomies ordenados por turno. |
+| `/ayuda` | Cualquiera | Cualquier chat | Muestra cómo se usa cada comando (excepto los de abajo). |
+
+**Comandos de administración** (solo admins, solo chats permitidos, **no aparecen en `/ayuda`**). Sin argumentos responden con su mensaje de uso.
+
+| Comando | Qué hace |
+|---|---|
+| `/nueva_tarea agregar <tarea>` | Crea la tarea (máx. 50 caracteres) y la asigna al roomie del primer turno, para el próximo domingo. Rechaza nombres que ya existan (comparando normalizado). |
+| `/nueva_tarea borrar <tarea>` | Borra la tarea junto con su asignación y su historial en `rotation_log`. "Comprar agua" no se puede borrar (ver `WATER_HWORK_ID`). |
+| `/nueva_roomie agregar <nombre> <apellido> <teléfono> [telegram_id]` | Registra a un roomie con el último turno. Si no se da el `telegram_id`, hay que mandar el comando **respondiendo a un mensaje** de esa persona y se toma de ahí. Cada campo máx. 15 caracteres; el nombre y el `telegram_id` no pueden repetirse. |
+| `/nueva_roomie borrar <nombre>` | Borra al roomie y recorre una posición los turnos posteriores. Se niega si tiene tareas asignadas: hay que pasarlas antes con `/asignar`. |
 
 Los nombres de tareas y roomies se comparan **normalizados** (minúsculas, sin acentos, espacios colapsados), así que `/terminada LIMPIAR  cocína` encuentra "Limpiar cocina".
 
@@ -25,7 +36,7 @@ Los nombres de tareas y roomies se comparan **normalizados** (minúsculas, sin a
 ## Reglas de negocio
 
 **Rotación** (`rotate_hwork`)
-- Los roomies tienen un `turn` del 1 al 6 (único). Rotar pasa la tarea al `turn + 1`, y del 6 vuelve al 1. **El 6 está fijo en el código.**
+- Cada roomie tiene un `turn` único. Rotar pasa la tarea al roomie con el siguiente turno, y del último vuelve al primero (consulta `next_roomie_by_turn`). No depende de cuántos roomies haya ni de que los turnos sean consecutivos, así que agregar o borrar roomies no requiere tocar código.
 - Al rotar: `assigned_at` = hoy, `due_date` = `next_sunday()`, y se escribe una fila en `rotation_log`.
 
 **Fecha límite** (`next_sunday`)
@@ -50,7 +61,7 @@ src/
   bot.py          Punto de entrada: registra los CommandHandler y hace polling.
   handlers.py     Un handler async por comando + helpers de formato (menciones HTML, aviso a admins).
   rotate_hwork.py Lógica de rotación, asignación y bloqueos. Constantes de negocio aquí.
-  queries.py      Búsqueda de IDs por nombre normalizado; query_assignment().
+  queries.py      Búsqueda de IDs por nombre normalizado.
   sql.py          Todas las consultas SQL como strings (parámetros con %s).
   connect_db.py   get_connection() con las variables DB_*.
   utils.py        next_sunday(), normalize_name(), parse_date(); DATE_FORMAT = dd/mm/aaaa.
@@ -61,7 +72,7 @@ db/
   init/                          (ignorada por git) scripts que Postgres corre al crear el volumen.
 ```
 
-Patrón de cada handler: validar chat/permisos/argumentos → abrir conexión → consultar con `pd.read_sql` → modificar con cursor + `commit` (dentro de `assign_hwork`) → responder en HTML. En error hace `rollback`, responde un mensaje genérico y relanza la excepción; siempre cierra la conexión.
+Patrón de cada handler: validar chat/permisos/argumentos → abrir conexión → consultar con `pd.read_sql` → modificar con cursor + `commit` (dentro de `assign_hwork`, o en el handler para `/nueva_tarea` y `/nueva_roomie`) → responder en HTML. En error hace `rollback`, responde un mensaje genérico y relanza la excepción; siempre cierra la conexión.
 
 ---
 
@@ -73,6 +84,8 @@ Patrón de cada handler: validar chat/permisos/argumentos → abrir conexión �
 - **`rotation_log`**: `housework_id`, `rotated_at` (timestamp sin zona, hora local). Solo para el límite diario.
 
 > `is_admin` y `completed_at` existen pero el código no los usa: los admins vienen del `.env`.
+
+> Las tablas no tienen secuencias: al insertar, los IDs (y el turno de un roomie nuevo) se calculan con `MAX + 1` dentro del propio `INSERT`.
 
 ---
 
@@ -126,8 +139,6 @@ docker compose logs -f bot
 
 - `ROTATION_WEEKDAYS = {1, 4, 5, 6}` incluye el **martes** (1), aunque el comentario y el mensaje de bloqueo dicen "viernes a domingo". Probablemente quedó de una prueba.
 - `bot.py` usa `PRUEBAS_TOKEN`; para producción hay que cambiarlo a `TELEGRAM_BOT_TOKEN` (o hacerlo configurable).
-- `ASIGNADA_USAGE` dice `/asignada`, pero el comando registrado es `/asignar`.
 - `/mis_tareas` y `/rol_semanal` fallan con el mensaje genérico si quien escribe no está en `roomies` (no hay validación como en `/termine_mis_tareas`).
-- El número de turnos (6) está fijo en `rotate_hwork`; si cambia el número de roomies hay que tocarlo.
-- `query_assignment` arma su SQL con f-string en lugar de parámetros.
+- `WATER_HWORK_ID = 4` está fijo. Por eso `/nueva_tarea` no deja borrar "Comprar agua": si se borrara y otra tarea recibiera el ID 4, heredaría su trato especial.
 - No hay tests.
