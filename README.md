@@ -9,12 +9,12 @@ Stack: Python 3.13 · [python-telegram-bot](https://docs.python-telegram-bot.org
 ## Comandos
 
 | Comando | Quién | Dónde | Qué hace |
-|---|---|---|---|
+|---|---|---|---|   
 | `/terminada <tarea>` | El responsable de la tarea o un admin | Solo chats permitidos | Rota la tarea al siguiente turno y avisa a los admins. |
 | `/termine_mis_tareas` | Cualquier roomie registrado | Solo chats permitidos | Intenta rotar todas las tareas del usuario; reporta cuáles se rotaron y cuáles quedaron bloqueadas. |
 | `/asignar <roomie> <tarea> [dd/mm/aaaa]` | Solo admins | Solo chats permitidos | Asigna una tarea a alguien a mano. Sin fecha → próximo domingo. No cuenta como rotación. |
 | `/mis_tareas` | Cualquier roomie registrado | Cualquier chat | Lista las tareas del usuario con fecha límite y fecha de asignación. |
-| `/rol_semanal` | Cualquier roomie registrado | Cualquier chat | Muestra todas las tareas con su responsable y fecha límite. |
+| `/rol` | Cualquier roomie registrado | Cualquier chat | Muestra todas las tareas con su responsable y fecha límite. |
 | `/responsable <tarea>` | Cualquiera | Cualquier chat | Muestra quién tiene una tarea y su fecha límite (con mención). |
 
 Los nombres de tareas y roomies se comparan **normalizados** (minúsculas, sin acentos, espacios colapsados), así que `/terminada LIMPIAR  cocína` encuentra "Limpiar cocina".
