@@ -18,7 +18,7 @@ from src.sql import (
 # Máximo de rotaciones por tarea al día (/terminada y /termine_mis_tareas).
 ROTATIONS_PER_DAY = int(os.getenv("ROTATIONS_PER_DAY", "1"))
 # Días en que se puede rotar una tarea no vencida: viernes, sábado y domingo.
-ROTATION_WEEKDAYS = {1, 4, 5, 6}
+ROTATION_WEEKDAYS = {4, 5, 6}
 # "Comprar agua": no lleva fecha límite y puede rotarse cualquier día.
 WATER_HWORK_ID = 4
 
